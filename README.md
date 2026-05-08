@@ -1,3 +1,7 @@
+# Drive Link for Demonstration Video, AI Disclosure and PPT
+
+https://drive.google.com/drive/folders/1cCztapmqOMZELOJ4k_OfrgiWZl8rmRTE?usp=drive_link
+
 # AI Travel Route Optimizer - Frontend
 
 A premium, modern frontend built with React, Next.js, and Tailwind CSS for the AI Travel Route Optimizer project.
