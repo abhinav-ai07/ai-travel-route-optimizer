@@ -2,21 +2,19 @@ import React, { useState } from "react";
 import {
   Plane,
   Train,
-  MapPin,
-  DollarSign,
-  Clock,
-  Calendar,
-  Zap,
-  TrendingDown,
-  Star,
   ArrowRight,
-  Loader,
+  RotateCcw,
+  TrendingDown,
+  Zap,
+  Star,
+  BarChart3,
 } from "lucide-react";
 import { routeAPI, RouteResponse } from "../lib/api";
 import toast from "react-hot-toast";
 import SearchForm from "../components/SearchForm";
 import RouteCard from "../components/RouteCard";
 import LoadingState from "../components/LoadingState";
+import EmptyState from "../components/EmptyState";
 import HeroSection from "../components/HeroSection";
 import BackgroundGradient from "../components/BackgroundGradient";
 
@@ -32,20 +30,24 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [searchParams, setSearchParams] = useState<SearchParams | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSearch = async (params: SearchParams) => {
     try {
       setLoading(true);
       setSearchParams(params);
       setSearched(true);
+      setError(null);
 
       const today = new Date().toISOString().split("T")[0];
+      const budget = params.budget ? parseFloat(params.budget) : undefined;
 
       const routeData = await routeAPI.getRoutes(
         params.source,
         params.destination,
         params.travelDate,
-        today
+        today,
+        budget
       );
 
       setRoutes(routeData || []);
@@ -57,9 +59,10 @@ export default function Home() {
       }
     } catch (error: any) {
       console.error("Error fetching routes:", error);
-      toast.error(
-        error?.response?.data?.detail || "Failed to fetch routes. Please try again."
-      );
+      const errorMsg =
+        error?.response?.data?.detail || "Failed to fetch routes. Please try again.";
+      toast.error(errorMsg);
+      setError(errorMsg);
       setRoutes([]);
     } finally {
       setLoading(false);
@@ -73,52 +76,66 @@ export default function Home() {
     trainFlight: routes.filter((r) => r.route_type === "train_plus_flight"),
   };
 
+  // Compute summary stats
+  const cheapestRoute = routes.length
+    ? routes.reduce((a, b) => (a.total_cost < b.total_cost ? a : b))
+    : null;
+  const fastestRoute = routes.find((r) => r.route_type === "direct_flight") || null;
+
+  const routeCategories = [
+    {
+      key: "flight",
+      title: "Direct Flights",
+      subtitle: "Non-stop air travel between cities",
+      icon: "✈️",
+      routes: categorizedRoutes.flight,
+      accentClass: "section-flight",
+      gradientClass: "gradient-flight",
+    },
+    {
+      key: "train",
+      title: "Direct Trains",
+      subtitle: "Rail journey between stations",
+      icon: "🚆",
+      routes: categorizedRoutes.train,
+      accentClass: "section-train",
+      gradientClass: "gradient-train",
+    },
+    {
+      key: "flightTrain",
+      title: "Flight → Train",
+      subtitle: "Fly to a hub city, then take a train to destination",
+      icon: "✈️→🚆",
+      routes: categorizedRoutes.flightTrain,
+      accentClass: "section-ft",
+      gradientClass: "gradient-ft",
+    },
+    {
+      key: "trainFlight",
+      title: "Train → Flight",
+      subtitle: "Train to a hub airport, then fly to destination",
+      icon: "🚆→✈️",
+      routes: categorizedRoutes.trainFlight,
+      accentClass: "section-tf",
+      gradientClass: "gradient-tf",
+    },
+  ];
+
   return (
     <>
       <BackgroundGradient />
       <div className="min-h-screen overflow-hidden">
         {/* Navigation Bar */}
-        <nav className="sticky top-0 z-50 glass border-b border-cyan-500/20 backdrop-blur-xl">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                    ✈️ RouteAI
-                  </div>
-                  <div className="hidden sm:flex flex-col">
-                    <span className="text-xs px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-medium">
-                      Premium Travel Planning
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-6">
-                <div className="hidden lg:flex items-center gap-4 text-sm text-cyan-300">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-400"></span>
-                    AI-Powered
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                    Multimodal Routes
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                    Real-time Pricing
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">AI</span>
-                  </div>
-                  <span className="hidden md:block text-sm font-medium text-slate-300">
-                    Intelligent Travel
-                  </span>
-                </div>
-              </div>
+        <nav className="app-navbar">
+          <div className="navbar-inner">
+            <div className="navbar-brand">
+              <span className="brand-icon">✈️</span>
+              <span className="brand-text">RouteAI</span>
+              <span className="brand-badge">AI Travel Planner</span>
+            </div>
+            <div className="navbar-status">
+              <div className="status-dot"></div>
+              <span className="status-text">Live</span>
             </div>
           </div>
         </nav>
@@ -127,128 +144,167 @@ export default function Home() {
         <main className="relative z-10">
           {!searched ? (
             <>
-              {/* Hero Section */}
               <HeroSection />
-
-              {/* Search Section */}
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-2xl blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <SearchForm onSearch={handleSearch} loading={loading} />
-                </div>
+              <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12" id="search-section">
+                <SearchForm onSearch={handleSearch} loading={loading} />
               </div>
             </>
           ) : (
-            <>
-              {/* Results Section */}
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                {/* Header with search summary */}
-                <div className="mb-8 glass p-6 rounded-2xl border border-cyan-500/20 flex justify-between items-center">
+            <div className="results-container">
+              {/* Search form always visible at top */}
+              <div className="results-search-wrap">
+                <SearchForm onSearch={handleSearch} loading={loading} />
+              </div>
+
+              {/* Results Header */}
+              <div className="results-header">
+                <div className="results-header-content">
                   <div>
-                    <h2 className="text-2xl font-bold text-cyan-300 mb-2">
-                      🗺️ Routes Found
+                    <h2 className="results-title">
+                      🗺️ Route Results
                     </h2>
-                    <p className="text-slate-400 text-sm">
-                      From <span className="text-cyan-400 font-semibold">{searchParams?.source}</span> to{" "}
-                      <span className="text-cyan-400 font-semibold">{searchParams?.destination}</span> on{" "}
-                      <span className="text-cyan-400 font-semibold">{searchParams?.travelDate}</span>
+                    <p className="results-subtitle">
+                      <span className="results-city">{searchParams?.source}</span>
+                      <ArrowRight className="w-4 h-4 inline mx-2 text-slate-500" />
+                      <span className="results-city">{searchParams?.destination}</span>
+                      <span className="results-date">• {searchParams?.travelDate}</span>
+                      {searchParams?.budget && (
+                        <span className="results-budget">• Budget: ₹{parseInt(searchParams.budget).toLocaleString("en-IN")}</span>
+                      )}
                     </p>
                   </div>
                   <button
                     onClick={() => {
                       setSearched(false);
                       setRoutes([]);
+                      setError(null);
                     }}
-                    className="btn-secondary"
+                    className="results-new-search"
                   >
-                    ← New Search
+                    <RotateCcw className="w-4 h-4" />
+                    New Search
                   </button>
                 </div>
 
-                {loading ? (
-                  <LoadingState />
-                ) : routes.length === 0 ? (
-                  <div className="text-center py-16">
-                    <Plane className="w-16 h-16 mx-auto text-slate-600 mb-4" />
-                    <h3 className="text-xl font-semibold text-slate-400 mb-2">
-                      No routes available
-                    </h3>
-                    <p className="text-slate-500">
-                      Try adjusting your search parameters
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Route Categories */}
-                    {[
-                      {
-                        title: "✈️ Direct Flights",
-                        routes: categorizedRoutes.flight,
-                        icon: Plane,
-                        color: "from-blue-600 to-cyan-500",
-                      },
-                      {
-                        title: "🚆 Direct Trains",
-                        routes: categorizedRoutes.train,
-                        icon: Train,
-                        color: "from-purple-600 to-pink-500",
-                      },
-                      {
-                        title: "🛫➡️🚆 Flight → Train",
-                        routes: categorizedRoutes.flightTrain,
-                        icon: ArrowRight,
-                        color: "from-emerald-600 to-cyan-500",
-                      },
-                      {
-                        title: "🚆➡️🛫 Train → Flight",
-                        routes: categorizedRoutes.trainFlight,
-                        icon: ArrowRight,
-                        color: "from-orange-600 to-pink-500",
-                      },
-                    ].map(
-                      (category) =>
-                        category.routes.length > 0 && (
-                          <div key={category.title} className="mb-12">
-                            <div className="flex items-center gap-3 mb-6">
-                              <div
-                                className={`w-1 h-8 rounded-full bg-gradient-to-b ${category.color}`}
-                              />
-                              <h3 className="text-2xl font-bold text-white">
-                                {category.title}
-                              </h3>
-                              <span className="ml-auto px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 text-sm font-medium border border-cyan-500/30">
-                                {category.routes.length} option
-                                {category.routes.length > 1 ? "s" : ""}
-                              </span>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                              {category.routes.map((route, idx) => (
-                                <RouteCard
-                                  key={`${category.title}-${idx}`}
-                                  route={route}
-                                  routeType={category.title}
-                                  index={idx}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        )
+                {/* Summary Stats */}
+                {routes.length > 0 && (
+                  <div className="results-stats">
+                    <div className="stat-card">
+                      <BarChart3 className="w-5 h-5 text-cyan-400" />
+                      <div>
+                        <span className="stat-value">{routes.length}</span>
+                        <span className="stat-label">Routes Found</span>
+                      </div>
+                    </div>
+                    {cheapestRoute && (
+                      <div className="stat-card">
+                        <TrendingDown className="w-5 h-5 text-emerald-400" />
+                        <div>
+                          <span className="stat-value">₹{cheapestRoute.total_cost.toLocaleString("en-IN")}</span>
+                          <span className="stat-label">Cheapest</span>
+                        </div>
+                      </div>
                     )}
-                  </>
+                    {fastestRoute && (
+                      <div className="stat-card">
+                        <Zap className="w-5 h-5 text-amber-400" />
+                        <div>
+                          <span className="stat-value">₹{fastestRoute.total_cost.toLocaleString("en-IN")}</span>
+                          <span className="stat-label">Fastest (Flight)</span>
+                        </div>
+                      </div>
+                    )}
+                    <div className="stat-card">
+                      <Star className="w-5 h-5 text-purple-400" />
+                      <div>
+                        <span className="stat-value">
+                          {[
+                            categorizedRoutes.flight.length > 0 ? "Flight" : "",
+                            categorizedRoutes.train.length > 0 ? "Train" : "",
+                            categorizedRoutes.flightTrain.length > 0 ? "Multi" : "",
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                        <span className="stat-label">Modes Available</span>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </div>
-            </>
+
+              {/* Route Results */}
+              {loading ? (
+                <LoadingState />
+              ) : error ? (
+                <EmptyState
+                  type="error"
+                  message={error}
+                  onRetry={() => {
+                    setSearched(false);
+                    setError(null);
+                  }}
+                />
+              ) : routes.length === 0 ? (
+                <EmptyState
+                  type="no-results"
+                  onRetry={() => {
+                    setSearched(false);
+                  }}
+                />
+              ) : (
+                <div className="route-sections">
+                  {routeCategories.map(
+                    (category) =>
+                      category.routes.length > 0 && (
+                        <section
+                          key={category.key}
+                          className={`route-section ${category.accentClass}`}
+                        >
+                          {/* Section Header */}
+                          <div className="section-header">
+                            <div className="section-header-left">
+                              <div className={`section-icon-wrap ${category.gradientClass}`}>
+                                <span className="section-icon-text">{category.icon}</span>
+                              </div>
+                              <div>
+                                <h3 className="section-title">{category.title}</h3>
+                                <p className="section-subtitle">{category.subtitle}</p>
+                              </div>
+                            </div>
+                            <div className="section-count">
+                              {category.routes.length} option
+                              {category.routes.length > 1 ? "s" : ""}
+                            </div>
+                          </div>
+
+                          {/* Route Cards */}
+                          <div className="route-cards-grid">
+                            {category.routes.map((route, idx) => (
+                              <RouteCard
+                                key={`${category.key}-${idx}`}
+                                route={route}
+                                routeType={category.title}
+                                index={idx}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      )
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </main>
 
         {/* Footer */}
-        <footer className="relative z-10 mt-20 border-t border-cyan-500/10 glass bg-opacity-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center text-slate-400 text-sm">
-            <p>
-              © 2026 AI Travel Route Optimizer • Powered by advanced ML & multimodal
-              analysis
+        <footer className="app-footer">
+          <div className="footer-inner">
+            <p className="footer-text">
+              © 2026 RouteAI — AI Travel Route Optimizer • Powered by advanced ML & multimodal analysis
             </p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="footer-subtext">
               💡 Making travel smarter, faster, and more affordable
             </p>
           </div>
