@@ -18,8 +18,11 @@
 .stat-label { display:block; font-size:11px; color:#64748b; }
 
 /* ===== ROUTE SECTIONS ===== */
-.route-sections { display:flex; flex-direction:column; gap:40px; }
-.route-section { animation:fadeIn .5s ease-out; }
+.route-sections { display:flex; flex-direction:column; gap:32px; }
+.route-section { animation:fadeIn .5s ease-out; background:rgba(15,23,42,0.55); border:1px solid rgba(14,165,233,0.12); border-radius:28px; padding:24px; }
+.route-grid-section { display:flex; flex-direction:column; gap:24px; width:100%; }
+.route-grid-head { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:20px 20px 12px; background:rgba(15,23,42,0.55); border:1px solid rgba(148,163,184,0.08); border-radius:22px; }
+.route-grid-head > div { min-width:0; }
 .section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid rgba(148,163,184,0.08); }
 .section-header-left { display:flex; align-items:center; gap:14px; }
 .section-icon-wrap { width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:20px; }
@@ -31,12 +34,12 @@
 .section-title { font-size:20px; font-weight:700; color:#fff; }
 .section-subtitle { font-size:13px; color:#64748b; }
 .section-count { padding:6px 14px; border-radius:20px; background:rgba(14,165,233,0.1); color:#67e8f9; font-size:13px; font-weight:600; border:1px solid rgba(14,165,233,0.2); }
-.route-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(380px,1fr)); gap:20px; }
+.route-cards-grid { display:grid; grid-template-columns:repeat(3,minmax(280px,1fr)); gap:20px; align-items:stretch; width:100%; }
 
 /* ===== ROUTE CARD ===== */
-.route-card { background:rgba(15,23,42,0.6); backdrop-filter:blur(12px); border:1px solid rgba(148,163,184,0.1); border-radius:20px; overflow:hidden; transition:all .4s ease; animation:slideUp .5s ease-out backwards; position:relative; }
-.route-card:hover { transform:translateY(-4px); border-color:rgba(14,165,233,0.3); box-shadow:0 20px 60px rgba(14,165,233,0.12); }
-.route-card-accent { height:3px; background:linear-gradient(90deg,#0ea5e9,#8b5cf6); }
+.route-card { background:rgba(15,23,42,0.7); backdrop-filter:blur(16px); border:1px solid rgba(148,163,184,0.12); border-radius:24px; overflow:hidden; transition:all .4s ease; animation:slideUp .5s ease-out backwards; position:relative; width:100%; display:flex; flex-direction:column; min-height:440px; }
+.route-card:hover { transform:translateY(-6px); border-color:rgba(14,165,233,0.35); box-shadow:0 24px 80px rgba(14,165,233,0.18); }
+.route-card-accent { height:4px; background:linear-gradient(90deg,#0ea5e9,#8b5cf6); }
 .accent-flight .route-card-accent { background:linear-gradient(90deg,#0ea5e9,#3b82f6); }
 .accent-train .route-card-accent { background:linear-gradient(90deg,#8b5cf6,#ec4899); }
 .accent-multi-ft .route-card-accent { background:linear-gradient(90deg,#10b981,#0ea5e9); }
@@ -57,11 +60,13 @@
 .tag-default { background:rgba(148,163,184,0.1); color:#94a3b8; border:1px solid rgba(148,163,184,0.2); }
 
 /* Journey header */
-.journey-header { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px 20px; }
+.journey-header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:1px solid rgba(148,163,184,0.08); background:rgba(15,23,42,0.55); }
+.journey-path { display:flex; align-items:center; gap:10px; }
 .journey-city { font-size:18px; font-weight:700; color:#e2e8f0; }
+.journey-duration { padding:6px 12px; border-radius:9999px; background:rgba(14,165,233,0.12); color:#67e8f9; font-size:12px; font-weight:600; }
 
 /* Route card body */
-.route-card-body { padding:0 20px 16px; }
+.route-card-body { padding:18px 20px 20px; flex:1; display:flex; flex-direction:column; gap:16px; }
 
 /* Simple route (direct flight/train) */
 .simple-route-display { display:flex; align-items:center; justify-content:space-between; padding:16px; background:rgba(15,23,42,0.5); border-radius:14px; border:1px solid rgba(148,163,184,0.06); }
@@ -164,6 +169,10 @@
 .footer-subtext { font-size:11px; color:#475569; margin-top:4px; }
 
 /* ===== RESPONSIVE ===== */
+@media (max-width:1024px) {
+  .route-cards-grid { grid-template-columns:repeat(2,minmax(260px,1fr)); }
+}
+
 @media (max-width:768px) {
   .search-grid { grid-template-columns:1fr; }
   .search-row-2 { grid-template-columns:1fr; }

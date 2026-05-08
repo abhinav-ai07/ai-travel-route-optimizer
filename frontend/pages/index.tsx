@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Plane,
   Train,
@@ -9,7 +9,7 @@ import {
   Star,
   BarChart3,
 } from "lucide-react";
-import { routeAPI, RouteResponse } from "../lib/api";
+import { routeAPI, RouteResponse, RouteSegment } from "../lib/api";
 import toast from "react-hot-toast";
 import SearchForm from "../components/SearchForm";
 import RouteCard from "../components/RouteCard";
@@ -69,18 +69,106 @@ export default function Home() {
     }
   };
 
+  const normalizeCity = (value?: string) =>
+    (value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const isSameLogicalPlace = (a?: string, b?: string) => {
+    const normalizedA = normalizeCity(a);
+    const normalizedB = normalizeCity(b);
+    if (!normalizedA || !normalizedB) {
+      return false;
+    }
+    return (
+      normalizedA === normalizedB ||
+      normalizedA.includes(normalizedB) ||
+      normalizedB.includes(normalizedA)
+    );
+  };
+
+  const isPracticalMultimodal = (route: RouteResponse) => {
+    if (!route.segments || route.segments.length !== 2) {
+      return true;
+    }
+
+    const [first, second] = route.segments as RouteSegment[];
+
+    if (!first || !second) {
+      return false;
+    }
+
+    if (
+      (first.from_code && first.to_code && first.from_code === first.to_code) ||
+      (second.from_code && second.to_code && second.from_code === second.to_code)
+    ) {
+      return false;
+    }
+
+    if (
+      isSameLogicalPlace(first.from_city, first.to_city) ||
+      isSameLogicalPlace(second.from_city, second.to_city)
+    ) {
+      return false;
+    }
+
+    if (
+      first.to_code && second.from_code &&
+      first.to_code !== second.from_code &&
+      !isSameLogicalPlace(first.to_city, second.from_city)
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const filteredRoutes = useMemo(() => {
+    const seen = new Set<string>();
+    return routes.filter((route) => {
+      if (
+        route.route_type === "flight_plus_train" ||
+        route.route_type === "train_plus_flight"
+      ) {
+        if (!isPracticalMultimodal(route)) {
+          return false;
+        }
+      }
+
+      const signatureParts = [route.route_type];
+      if (route.segments) {
+        signatureParts.push(
+          route.segments
+            .map((segment) => `${segment.mode}:${segment.from_code}->${segment.to_code}`)
+            .join("|")
+        );
+      } else {
+        signatureParts.push(`${route.from_code || route.from_airport}->${route.to_code || route.to_airport}`);
+      }
+      signatureParts.push(String(route.total_cost));
+      const signature = signatureParts.join("::");
+
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+  }, [routes]);
+
   const categorizedRoutes = {
-    flight: routes.filter((r) => r.route_type === "direct_flight"),
-    train: routes.filter((r) => r.route_type === "direct_train"),
-    flightTrain: routes.filter((r) => r.route_type === "flight_plus_train"),
-    trainFlight: routes.filter((r) => r.route_type === "train_plus_flight"),
+    flight: filteredRoutes.filter((r) => r.route_type === "direct_flight"),
+    train: filteredRoutes.filter((r) => r.route_type === "direct_train"),
+    flightTrain: filteredRoutes.filter((r) => r.route_type === "flight_plus_train"),
+    trainFlight: filteredRoutes.filter((r) => r.route_type === "train_plus_flight"),
   };
 
   // Compute summary stats
-  const cheapestRoute = routes.length
-    ? routes.reduce((a, b) => (a.total_cost < b.total_cost ? a : b))
+  const cheapestRoute = filteredRoutes.length
+    ? filteredRoutes.reduce((a, b) => (a.total_cost < b.total_cost ? a : b))
     : null;
-  const fastestRoute = routes.find((r) => r.route_type === "direct_flight") || null;
+  const fastestRoute = filteredRoutes.find((r) => r.route_type === "direct_flight") || null;
 
   const routeCategories = [
     {
@@ -187,12 +275,12 @@ export default function Home() {
                 </div>
 
                 {/* Summary Stats */}
-                {routes.length > 0 && (
+                {filteredRoutes.length > 0 && (
                   <div className="results-stats">
                     <div className="stat-card">
                       <BarChart3 className="w-5 h-5 text-cyan-400" />
                       <div>
-                        <span className="stat-value">{routes.length}</span>
+                        <span className="stat-value">{filteredRoutes.length}</span>
                         <span className="stat-label">Routes Found</span>
                       </div>
                     </div>
@@ -236,15 +324,6 @@ export default function Home() {
               {/* Route Results */}
               {loading ? (
                 <LoadingState />
-              ) : error ? (
-                <EmptyState
-                  type="error"
-                  message={error}
-                  onRetry={() => {
-                    setSearched(false);
-                    setError(null);
-                  }}
-                />
               ) : routes.length === 0 ? (
                 <EmptyState
                   type="no-results"
@@ -253,45 +332,29 @@ export default function Home() {
                   }}
                 />
               ) : (
-                <div className="route-sections">
-                  {routeCategories.map(
-                    (category) =>
-                      category.routes.length > 0 && (
-                        <section
-                          key={category.key}
-                          className={`route-section ${category.accentClass}`}
-                        >
-                          {/* Section Header */}
-                          <div className="section-header">
-                            <div className="section-header-left">
-                              <div className={`section-icon-wrap ${category.gradientClass}`}>
-                                <span className="section-icon-text">{category.icon}</span>
-                              </div>
-                              <div>
-                                <h3 className="section-title">{category.title}</h3>
-                                <p className="section-subtitle">{category.subtitle}</p>
-                              </div>
-                            </div>
-                            <div className="section-count">
-                              {category.routes.length} option
-                              {category.routes.length > 1 ? "s" : ""}
-                            </div>
-                          </div>
+                <div className="route-grid-section">
+                  <div className="route-grid-head">
+                    <div>
+                      <h3 className="section-title">Compare Travel Options</h3>
+                      <p className="section-subtitle">
+                        View flights, trains, and hybrid routes side-by-side for faster decision making.
+                      </p>
+                    </div>
+                    <div className="section-count">
+                      {filteredRoutes.length} option{filteredRoutes.length > 1 ? "s" : ""}
+                    </div>
+                  </div>
 
-                          {/* Route Cards */}
-                          <div className="route-cards-grid">
-                            {category.routes.map((route, idx) => (
-                              <RouteCard
-                                key={`${category.key}-${idx}`}
-                                route={route}
-                                routeType={category.title}
-                                index={idx}
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      )
-                  )}
+                  <div className="route-cards-grid">
+                    {filteredRoutes.map((route, idx) => (
+                      <RouteCard
+                        key={`${route.route_type}-${idx}`}
+                        route={route}
+                        routeType={route.route_type}
+                        index={idx}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

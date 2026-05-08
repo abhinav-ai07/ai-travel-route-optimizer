@@ -79,14 +79,43 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
 
   const routeInfo = getRouteTypeInfo();
 
-  // Render a single segment in the timeline
+  const primaryOrigin =
+    route.segments?.[0]?.from_city || route.from_city || sourceCityDisplay;
+  const primaryDestination =
+    route.segments?.[route.segments.length - 1]?.to_city ||
+    route.to_city ||
+    destCityDisplay;
+
+  const renderCostBreakdown = () => (
+    <div className="route-cost-section">
+      <div className="cost-breakdown">
+        {route.flight_cost !== undefined && (
+          <div className="cost-item">
+            <span className="cost-label">Flight fare</span>
+            <span className="cost-value">₹{route.flight_cost.toLocaleString("en-IN")}</span>
+          </div>
+        )}
+        {route.train_cost !== undefined && (
+          <div className="cost-item">
+            <span className="cost-label">Train fare</span>
+            <span className="cost-value">₹{route.train_cost.toLocaleString("en-IN")}</span>
+          </div>
+        )}
+        <div className="cost-divider" />
+        <div className="cost-total">
+          <span className="cost-total-label">Total trip cost</span>
+          <span className="cost-total-value">₹{route.total_cost.toLocaleString("en-IN")}</span>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderSegment = (segment: RouteSegment, segIndex: number, total: number) => {
     const isLast = segIndex === total - 1;
     const isFlight = segment.mode === "flight";
 
     return (
       <div key={segIndex} className="timeline-segment">
-        {/* Timeline dot and line */}
         <div className="timeline-track">
           <div className={`timeline-dot ${isFlight ? "dot-flight" : "dot-train"}`}>
             {isFlight ? (
@@ -98,7 +127,6 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
           {!isLast && <div className="timeline-line"></div>}
         </div>
 
-        {/* Segment details */}
         <div className="timeline-content">
           <div className="segment-header">
             <span className={`segment-mode ${isFlight ? "mode-flight" : "mode-train"}`}>
@@ -132,7 +160,6 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
     );
   };
 
-  // Render simple route (non-multimodal) with city names
   const renderSimpleRoute = () => {
     const fromCode = route.from_code || route.from_airport || route.from_station || "";
     const toCode = route.to_code || route.to_airport || route.to_station || "";
@@ -140,47 +167,49 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
     const toCity = route.to_city || destCityDisplay;
 
     return (
-      <div className="simple-route-display">
-        <div className="route-endpoint">
-          <div className="endpoint-icon">
-            {route.route_type === "direct_flight" ? (
-              <Plane className="w-5 h-5 text-cyan-400" />
-            ) : (
-              <Train className="w-5 h-5 text-purple-400" />
-            )}
+      <>
+        <div className="simple-route-display">
+          <div className="route-endpoint">
+            <div className="endpoint-icon">
+              {route.route_type === "direct_flight" ? (
+                <Plane className="w-5 h-5 text-cyan-400" />
+              ) : (
+                <Train className="w-5 h-5 text-purple-400" />
+              )}
+            </div>
+            <div>
+              <div className="endpoint-city">{fromCity}</div>
+              <div className="endpoint-code">{fromCode}</div>
+            </div>
           </div>
-          <div>
-            <div className="endpoint-city">{fromCity}</div>
-            <div className="endpoint-code">{fromCode}</div>
-          </div>
-        </div>
 
-        <div className="route-flow-line">
-          <div className="flow-line"></div>
-          <div className="flow-icon">
-            {route.route_type === "direct_flight" ? (
-              <Plane className="w-4 h-4 text-cyan-400 transform rotate-90" />
-            ) : (
-              <Train className="w-4 h-4 text-purple-400" />
-            )}
+          <div className="route-flow-line">
+            <div className="flow-line"></div>
+            <div className="flow-icon">
+              {route.route_type === "direct_flight" ? (
+                <Plane className="w-4 h-4 text-cyan-400 transform rotate-90" />
+              ) : (
+                <Train className="w-4 h-4 text-purple-400" />
+              )}
+            </div>
+            <div className="flow-line"></div>
           </div>
-          <div className="flow-line"></div>
-        </div>
 
-        <div className="route-endpoint">
-          <div className="endpoint-icon endpoint-icon-dest">
-            <MapPin className="w-5 h-5 text-emerald-400" />
-          </div>
-          <div>
-            <div className="endpoint-city">{toCity}</div>
-            <div className="endpoint-code">{toCode}</div>
+          <div className="route-endpoint">
+            <div className="endpoint-icon endpoint-icon-dest">
+              <MapPin className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <div className="endpoint-city">{toCity}</div>
+              <div className="endpoint-code">{toCode}</div>
+            </div>
           </div>
         </div>
-      </div>
+        {renderCostBreakdown()}
+      </>
     );
   };
 
-  // Distance info (smart — only shown when > 0)
   const distance =
     route.airport_distance_to_destination ||
     route.station_distance_to_destination ||
@@ -218,38 +247,45 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
 
       {/* Journey Header */}
       <div className="journey-header">
-        <span className="journey-city">{sourceCityDisplay}</span>
-        <ArrowRight className="w-5 h-5 text-slate-500" />
-        <span className="journey-city">{destCityDisplay}</span>
+        <div className="journey-path">
+          <span className="journey-city">{primaryOrigin}</span>
+          <ArrowRight className="w-5 h-5 text-slate-500" />
+          <span className="journey-city">{primaryDestination}</span>
+        </div>
+        {route.travel_time && (
+          <span className="journey-duration">{route.travel_time}</span>
+        )}
       </div>
 
       {/* Route Body */}
       <div className="route-card-body">
         {isMultimodal && route.segments ? (
-          <div className="timeline-container">
-            {route.segments.map((seg, i) =>
-              renderSegment(seg, i, route.segments!.length)
-            )}
-            {/* Final destination dot */}
-            <div className="timeline-segment timeline-end">
-              <div className="timeline-track">
-                <div className="timeline-dot dot-destination">
-                  <MapPin className="w-3.5 h-3.5 text-white" />
-                </div>
-              </div>
-              <div className="timeline-content">
-                <span className="text-sm font-semibold text-emerald-400">
-                  {destCityDisplay}
-                </span>
-                <span className="text-xs text-slate-500">Destination</span>
-              </div>
+          <>
+            <div className="timeline-container">
+              {route.segments.map((seg, i) =>
+                renderSegment(seg, i, route.segments!.length)
+              )}
             </div>
-          </div>
+            {renderCostBreakdown()}
+            {route.recommendation_reason && (
+              <div className="recommendation-reason">
+                <Info className="w-4 h-4 text-cyan-300" />
+                <span>{route.recommendation_reason}</span>
+              </div>
+            )}
+          </>
         ) : (
-          renderSimpleRoute()
+          <>
+            {renderSimpleRoute()}
+            {route.recommendation_reason && (
+              <div className="recommendation-reason">
+                <Info className="w-4 h-4 text-cyan-300" />
+                <span>{route.recommendation_reason}</span>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Distance to destination (only if > 0) */}
         {distance > 0 && (
           <div className="distance-badge">
             <MapPin className="w-3.5 h-3.5 text-amber-400" />
