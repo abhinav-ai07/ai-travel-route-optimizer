@@ -6,7 +6,8 @@ from services.airport_service import (
 )
 
 from services.station_service import (
-    find_nearest_stations
+    find_nearest_stations,
+    find_nearest_tier1_station
 )
 
 from services.flight_engine import (
@@ -205,71 +206,27 @@ def generate_routes(
         routes.append(route_1)
 
     # =========================================
-    # DIRECT TRAIN
+    # TRAIN ROUTES (TIER-BASED COMBINATIONS)
     # =========================================
 
-    train_distance = train_engine.calculate_haversine_distance(
-        source_coords["lat"],
-        source_coords["lon"],
-        destination_coords["lat"],
-        destination_coords["lon"]
-    )
+    source_tier = source_station.get("tier", "Tier 3")
+    dest_tier = destination_station.get("tier", "Tier 3")
 
-    train_result = train_engine.get_fare(
-        displacement_km=train_distance,
-        travel_class="3A",
-        train_category="Superfast"
-    )
+    # 1. Direct Train
+    if source_tier in ["Tier 1", "Tier 2"] and dest_tier in ["Tier 1", "Tier 2"]:
+        add_direct_train_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords)
 
-    # Smart distance for station
-    dest_station_distance = smart_distance(
-        destination_station["distance_km"],
-        destination
-    )
-    src_station_distance = smart_distance(
-        source_station["distance_km"],
-        source
-    )
+    # 2. Via Source Hub
+    if source_tier in ["Tier 2", "Tier 3"] and dest_tier in ["Tier 1", "Tier 2"]:
+        add_via_hub_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords, hub_type="source")
 
-    station_name_src = source_station.get("station", source)
-    station_name_dst = destination_station.get("station", destination)
+    # 3. Via Destination Hub
+    if source_tier in ["Tier 1", "Tier 2"] and dest_tier in ["Tier 2", "Tier 3"]:
+        add_via_hub_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords, hub_type="destination")
 
-    route_2 = {
-        "route_type": "direct_train",
-
-        "from_city": station_name_src,
-        "from_code": source_station["code"],
-        "to_city": station_name_dst,
-        "to_code": destination_station["code"],
-
-        "source_city": source,
-        "destination_city": destination,
-
-        # Legacy fields
-        "from_station": source_station["code"],
-        "to_station": destination_station["code"],
-
-        "station_distance_to_destination": dest_station_distance,
-        "source_station_distance": src_station_distance,
-
-        "total_cost": train_result["fare"],
-        "train_distance_km": round(train_distance, 1),
-
-        "segments": [
-            {
-                "mode": "train",
-                "from_city": station_name_src,
-                "from_code": source_station["code"],
-                "to_city": station_name_dst,
-                "to_code": destination_station["code"],
-                "cost": train_result["fare"],
-                "distance_km": round(train_distance, 1)
-            }
-        ]
-    }
-
-    if route_2["total_cost"] and route_2["total_cost"] > 0:
-        routes.append(route_2)
+    # 4. Via Both Hubs
+    if source_tier in ["Tier 2", "Tier 3"] and dest_tier in ["Tier 2", "Tier 3"]:
+        add_via_both_hubs_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords)
 
     # =========================================
     # MULTIMODAL ROUTES
@@ -291,3 +248,169 @@ def generate_routes(
     routes.extend(multimodal_routes)
 
     return routes
+
+
+def add_direct_train_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords):
+    train_distance = train_engine.calculate_haversine_distance(
+        source_coords["lat"], source_coords["lon"],
+        destination_coords["lat"], destination_coords["lon"]
+    )
+    train_result = train_engine.get_fare(displacement_km=train_distance, travel_class="3A", train_category="Superfast")
+    
+    if train_result["fare"]:
+        route = {
+            "route_type": "direct_train",
+            "from_city": source_station.get("station", source),
+            "from_code": source_station["code"],
+            "to_city": destination_station.get("station", destination),
+            "to_code": destination_station["code"],
+            "source_city": source,
+            "destination_city": destination,
+            "total_cost": train_result["fare"],
+            "train_distance_km": round(train_distance, 1),
+            "segments": [
+                {
+                    "mode": "train",
+                    "from_city": source_station.get("station", source),
+                    "from_code": source_station["code"],
+                    "to_city": destination_station.get("station", destination),
+                    "to_code": destination_station["code"],
+                    "cost": train_result["fare"],
+                    "distance_km": round(train_distance, 1)
+                }
+            ]
+        }
+        routes.append(route)
+
+
+def add_via_hub_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords, hub_type="source"):
+    # Determine which hub to find
+    coords = source_coords if hub_type == "source" else destination_coords
+    hub = find_nearest_tier1_station(coords["lat"], coords["lon"])
+    
+    if not hub:
+        return
+        
+    # Check if hub is redundant
+    if hub["code"] == source_station["code"] or hub["code"] == destination_station["code"]:
+        return
+
+    # Calculate segments
+    if hub_type == "source":
+        # Source -> Hub -> Destination
+        seg1_from, seg1_to = source_station, hub
+        seg2_from, seg2_to = hub, destination_station
+    else:
+        # Source -> Hub -> Destination
+        seg1_from, seg1_to = source_station, hub
+        seg2_from, seg2_to = hub, destination_station
+
+    dist1 = train_engine.calculate_haversine_distance(seg1_from["lat"] if "lat" in seg1_from else source_coords["lat"], seg1_from["lon"] if "lon" in seg1_from else source_coords["lon"], seg1_to["lat"], seg1_to["lon"])
+    res1 = train_engine.get_fare(displacement_km=dist1, travel_class="3A", train_category="Superfast")
+    
+    dist2 = train_engine.calculate_haversine_distance(seg2_from["lat"], seg2_from["lon"], seg2_to["lat"] if "lat" in seg2_to else destination_coords["lat"], seg2_to["lon"] if "lon" in seg2_to else destination_coords["lon"])
+    res2 = train_engine.get_fare(displacement_km=dist2, travel_class="3A", train_category="Superfast")
+    
+    if res1["fare"] and res2["fare"]:
+        route = {
+            "route_type": "train_via_tier1",
+            "from_city": source_station.get("station", source),
+            "from_code": source_station["code"],
+            "to_city": destination_station.get("station", destination),
+            "to_code": destination_station["code"],
+            "source_city": source,
+            "destination_city": destination,
+            "train_cost": res1["fare"] + res2["fare"],
+            "total_cost": res1["fare"] + res2["fare"],
+            "segments": [
+                {
+                    "mode": "train",
+                    "from_city": seg1_from.get("station", source),
+                    "from_code": seg1_from["code"],
+                    "to_city": seg1_to["station"],
+                    "to_code": seg1_to["code"],
+                    "cost": res1["fare"],
+                    "distance_km": round(dist1, 1)
+                },
+                {
+                    "mode": "train",
+                    "from_city": seg2_from.get("station", source),
+                    "from_code": seg2_from["code"],
+                    "to_city": seg2_to.get("station", destination),
+                    "to_code": seg2_to["code"],
+                    "cost": res2["fare"],
+                    "distance_km": round(dist2, 1)
+                }
+            ]
+        }
+        routes.append(route)
+
+
+def add_via_both_hubs_route(routes, source, destination, source_station, destination_station, source_coords, destination_coords):
+    hub_src = find_nearest_tier1_station(source_coords["lat"], source_coords["lon"])
+    hub_dst = find_nearest_tier1_station(destination_coords["lat"], destination_coords["lon"])
+    
+    if not hub_src or not hub_dst:
+        return
+        
+    # Check for redundancy
+    if hub_src["code"] == source_station["code"] or hub_dst["code"] == destination_station["code"]:
+        return
+    if hub_src["code"] == hub_dst["code"]:
+        return
+
+    # Segments: Source -> HubSrc -> HubDst -> Destination
+    # Segment 1: Source -> HubSrc
+    dist1 = train_engine.calculate_haversine_distance(source_coords["lat"], source_coords["lon"], hub_src["lat"], hub_src["lon"])
+    res1 = train_engine.get_fare(displacement_km=dist1, travel_class="3A", train_category="Superfast")
+    
+    # Segment 2: HubSrc -> HubDst
+    dist2 = train_engine.calculate_haversine_distance(hub_src["lat"], hub_src["lon"], hub_dst["lat"], hub_dst["lon"])
+    res2 = train_engine.get_fare(displacement_km=dist2, travel_class="3A", train_category="Superfast")
+    
+    # Segment 3: HubDst -> Destination
+    dist3 = train_engine.calculate_haversine_distance(hub_dst["lat"], hub_dst["lon"], destination_coords["lat"], destination_coords["lon"])
+    res3 = train_engine.get_fare(displacement_km=dist3, travel_class="3A", train_category="Superfast")
+    
+    if res1["fare"] and res2["fare"] and res3["fare"]:
+        route = {
+            "route_type": "train_via_tier1",
+            "from_city": source_station.get("station", source),
+            "from_code": source_station["code"],
+            "to_city": destination_station.get("station", destination),
+            "to_code": destination_station["code"],
+            "source_city": source,
+            "destination_city": destination,
+            "train_cost": res1["fare"] + res2["fare"] + res3["fare"],
+            "total_cost": res1["fare"] + res2["fare"] + res3["fare"],
+            "segments": [
+                {
+                    "mode": "train",
+                    "from_city": source_station.get("station", source),
+                    "from_code": source_station["code"],
+                    "to_city": hub_src["station"],
+                    "to_code": hub_src["code"],
+                    "cost": res1["fare"],
+                    "distance_km": round(dist1, 1)
+                },
+                {
+                    "mode": "train",
+                    "from_city": hub_src["station"],
+                    "from_code": hub_src["code"],
+                    "to_city": hub_dst["station"],
+                    "to_code": hub_dst["code"],
+                    "cost": res2["fare"],
+                    "distance_km": round(dist2, 1)
+                },
+                {
+                    "mode": "train",
+                    "from_city": hub_dst["station"],
+                    "from_code": hub_dst["code"],
+                    "to_city": destination_station.get("station", destination),
+                    "to_code": destination_station["code"],
+                    "cost": res3["fare"],
+                    "distance_km": round(dist3, 1)
+                }
+            ]
+        }
+        routes.append(route)

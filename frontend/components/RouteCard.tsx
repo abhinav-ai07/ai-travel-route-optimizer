@@ -20,7 +20,8 @@ interface RouteCardProps {
 const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
   const isMultimodal =
     route.route_type === "flight_plus_train" ||
-    route.route_type === "train_plus_flight";
+    route.route_type === "train_plus_flight" ||
+    route.route_type === "train_via_tier1";
 
   // Get display names
   const sourceCityDisplay = route.source_city || route.from_city || "—";
@@ -72,6 +73,8 @@ const RouteCard: React.FC<RouteCardProps> = ({ route, routeType, index }) => {
         return { label: "Flight → Train", icon: "✈️🚆", accent: "accent-multi-ft" };
       case "train_plus_flight":
         return { label: "Train → Flight", icon: "🚆✈️", accent: "accent-multi-tf" };
+      case "train_via_tier1":
+        return { label: "Train via Hub", icon: "🚆🚆", accent: "accent-train" };
       default:
         return { label: "Route", icon: "📍", accent: "" };
     }

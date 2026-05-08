@@ -71,6 +71,9 @@ def find_station_by_city(city_name):
                 "station": row['Station Name'],
                 "code": row['Station Code'],
                 "state": row['State'],
+                "tier": row['Tier'],
+                "lat": row['Latitude'],
+                "lon": row['Longitude'],
                 "distance_km": 0
             }
 
@@ -82,6 +85,9 @@ def find_station_by_city(city_name):
                 "station": row['Station Name'],
                 "code": row['Station Code'],
                 "state": row['State'],
+                "tier": row['Tier'],
+                "lat": row['Latitude'],
+                "lon": row['Longitude'],
                 "distance_km": 0
             }
 
@@ -94,6 +100,9 @@ def find_station_by_city(city_name):
                 "station": row['Station Name'],
                 "code": row['Station Code'],
                 "state": row['State'],
+                "tier": row['Tier'],
+                "lat": row['Latitude'],
+                "lon": row['Longitude'],
                 "distance_km": 0
             }
 
@@ -156,6 +165,15 @@ def find_nearest_stations(
             "state":
                 row['State'],
 
+            "tier":
+                row['Tier'],
+
+            "lat":
+                row['Latitude'],
+
+            "lon":
+                row['Longitude'],
+
             "distance_km":
                 round(distance, 2)
         })
@@ -170,3 +188,39 @@ def find_nearest_stations(
     )
 
     return station_distances[:top_n]
+
+
+# =========================================
+# FIND NEAREST TIER 1 STATION
+# =========================================
+
+def find_nearest_tier1_station(
+    user_lat,
+    user_lon
+):
+    tier1_df = df[df['Tier'] == 'Tier 1']
+    
+    if tier1_df.empty:
+        return None
+        
+    station_distances = []
+
+    for _, row in tier1_df.iterrows():
+        distance = haversine(
+            user_lat,
+            user_lon,
+            row['Latitude'],
+            row['Longitude']
+        )
+        station_distances.append({
+            "station": row['Station Name'],
+            "code": row['Station Code'],
+            "state": row['State'],
+            "tier": row['Tier'],
+            "lat": row['Latitude'],
+            "lon": row['Longitude'],
+            "distance_km": round(distance, 2)
+        })
+
+    station_distances.sort(key=lambda x: x["distance_km"])
+    return station_distances[0] if station_distances else None
