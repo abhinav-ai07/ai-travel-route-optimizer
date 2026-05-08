@@ -245,7 +245,7 @@ def get_locations(q: Optional[str] = None):
             1 if query in x["name"].lower() else 2
         ))
         return filtered[:30]  # Limit results
-    return ALL_LOCATIONS[:100]  # Return first 100 if no query
+    return ALL_LOCATIONS  # Return all locations for frontend to cache
 
 @app.post("/routes")
 def get_routes(request: RouteRequest):
