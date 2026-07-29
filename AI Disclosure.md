@@ -4,7 +4,7 @@ AI Usage DISCLOSURE FORM
 Team Name: Team Alpha
 Project / Product Name: AI Travel Route Optimizer
 Organization / Institution (if any):R.V. College of Engineering
-Submission Date:08 May 2026
+Submission Date:29 july 2026
 
 
 2. AI Usage Declaration
@@ -54,7 +54,5 @@ AI usage complies with guidelines and policies.  Yes
 No proprietary or copyrighted data misused. I Agree
 
 6. Declaration & Sign-Off
-Name of Team Representative: Abhinav Vats
+Name of Team Representative: Dhruv kumar 
 Role: Team Leader, Design and Strategy
-Signature: Abhinav Vats
-Date: 08 May 2026
