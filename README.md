@@ -1,6 +1,3 @@
-# Drive Link for Demonstration Video, AI Disclosure and PPT
-
-https://drive.google.com/drive/folders/1cCztapmqOMZELOJ4k_OfrgiWZl8rmRTE?usp=drive_link
 
 # AI Travel Route Optimizer - Frontend
 
@@ -216,4 +213,4 @@ Part of the AI Travel Route Optimizer project.
 
 ---
 
-**Built with ❤️ for travelers & hackathon enthusiasts**
+**Built with ❤️ for travelers **
